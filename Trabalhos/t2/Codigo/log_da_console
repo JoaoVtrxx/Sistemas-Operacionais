@@ -1,0 +1,26 @@
+SO: carga de 'trata_int.maq'
+carregado na memória física, 10-15
+CMD: 'C'
+SO: recebi IRQ 0 (Reset)
+SO: carga de 'init.maq'
+carregado na memória virtual V100-269 F100-269
+SO: problema na carga do programa inicial
+SO: recebi IRQ 3 (E/S: relógio)
+SO: interrupção do relógio (não tratada)
+SO: recebi IRQ 3 (E/S: relógio)
+SO: interrupção do relógio (não tratada)
+SO: recebi IRQ 3 (E/S: relógio)
+SO: interrupção do relógio (não tratada)
+SO: recebi IRQ 3 (E/S: relógio)
+SO: interrupção do relógio (não tratada)
+SO: recebi IRQ 3 (E/S: relógio)
+SO: interrupção do relógio (não tratada)
+SO: recebi IRQ 3 (E/S: relógio)
+SO: interrupção do relógio (não tratada)
+SO: recebi IRQ 3 (E/S: relógio)
+SO: interrupção do relógio (não tratada)
+SO: recebi IRQ 3 (E/S: relógio)
+SO: interrupção do relógio (não tratada)
+CMD: 'F'
+Fim da execução.
+relógio: 407

@@ -1,0 +1,75 @@
+=== Métricas de Todos os Processos ===
+Metricas do Processo 1:
+  - Tempo de vida: 27941.00 instrucoes
+  - Numero de preempções: 0
+  - Tempo medio de resposta: 102.50 instrucoes
+  - Tempo total nos estados:
+      * PRONTO: 410.00 instrucoes
+      * EXECUTANDO: 333.00 instrucoes
+      * BLOQUEADO: 27198.00 instrucoes
+      * MORTO: 0.00 instrucoes
+  - Transicoes de estado:
+      * PRONTO: 4 vezes
+      * EXECUTANDO: 4 vezes
+      * BLOQUEADO: 3 vezes
+      * MORTO: 1 vezes
+
+Metricas do Processo 2:
+  - Tempo de vida: 13008.00 instrucoes
+  - Numero de preempções: 0
+  - Tempo medio de resposta: 490.14 instrucoes
+  - Tempo total nos estados:
+      * PRONTO: 3431.00 instrucoes
+      * EXECUTANDO: 9153.00 instrucoes
+      * BLOQUEADO: 424.00 instrucoes
+      * MORTO: 14550.00 instrucoes
+  - Transicoes de estado:
+      * PRONTO: 7 vezes
+      * EXECUTANDO: 7 vezes
+      * BLOQUEADO: 6 vezes
+      * MORTO: 1 vezes
+
+Metricas do Processo 3:
+  - Tempo de vida: 15831.00 instrucoes
+  - Numero de preempções: 0
+  - Tempo medio de resposta: 482.14 instrucoes
+  - Tempo total nos estados:
+      * PRONTO: 10607.00 instrucoes
+      * EXECUTANDO: 3762.00 instrucoes
+      * BLOQUEADO: 1462.00 instrucoes
+      * MORTO: 11719.00 instrucoes
+  - Transicoes de estado:
+      * PRONTO: 22 vezes
+      * EXECUTANDO: 22 vezes
+      * BLOQUEADO: 21 vezes
+      * MORTO: 1 vezes
+
+Metricas do Processo 4:
+  - Tempo de vida: 27223.00 instrucoes
+  - Numero de preempções: 0
+  - Tempo medio de resposta: 95.66 instrucoes
+  - Tempo total nos estados:
+      * PRONTO: 12532.00 instrucoes
+      * EXECUTANDO: 5721.00 instrucoes
+      * BLOQUEADO: 8970.00 instrucoes
+      * MORTO: 319.00 instrucoes
+  - Transicoes de estado:
+      * PRONTO: 131 vezes
+      * EXECUTANDO: 131 vezes
+      * BLOQUEADO: 130 vezes
+      * MORTO: 1 vezes
+
+=== Metricas do Sistema Operacional ===
+  - Numero de processos criados: 4
+  - Tempo total de execucao: 27941.00 instrucoes
+  - Tempo total ocioso: 8562.00 instrucoes
+  - Numero de preempcoes: 0
+  - Interrupcoes recebidas por tipo:
+      * Tipo IRQ_RESET: 1 vezes
+      * Tipo IRQ_ERR_CPU: 0 vezes
+      * Tipo IRQ_SISTEMA: 462 vezes
+      * Tipo IRQ_RELOGIO: 557 vezes
+      * Tipo IRQ_TECLADO: 0 vezes
+      * Tipo IRQ_TELA: 0 vezes
+      * Tipo N_IRQ: 0 vezes
+      * Tipo UNKNOWN_IRQ: 0 vezes
