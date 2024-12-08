@@ -17,7 +17,7 @@
 // CONSTANTES E TIPOS {{{1
 // intervalo entre interrupções do relogio
 #define INTERVALO_INTERRUPCAO 50   // em instruções executadas
-#define QUANTUM 25
+#define QUANTUM 5
 
 // ESTADOS PROCESSOS
 #define PRONTO 0
@@ -154,7 +154,7 @@ processo_t *fila_remover_prioridade(fila_t *fila);
 
 double calcula_prioridade(so_t *self,double prio){
 
-  return prio + (QUANTUM - self->quantum_restante) / (float)QUANTUM / 2;
+  return (prio + ((QUANTUM - self->quantum_restante) / QUANTUM)) / 2;
   
 }
 
@@ -588,9 +588,9 @@ static void so_trata_irq_reset(so_t *self)
   fila_inserir(self->fila_prontos, processo_init);
 
   // altera o PC para o endereço de carga
-  mem_escreve(self->mem, IRQ_END_PC, ender);
+  //mem_escreve(self->mem, IRQ_END_PC, ender);
   // passa o processador para modo usuário
-  mem_escreve(self->mem, IRQ_END_modo, usuario);
+  //mem_escreve(self->mem, IRQ_END_modo, usuario);
 }
 
 // interrupcao gerada quando a CPU identifica um erro
@@ -762,8 +762,7 @@ static void so_chamada_le(so_t *self)
   // T1: se houvesse processo, deveria escrever no reg A do processo
   // T1: o acesso só deve ser feito nesse momento se for possível; se não, o processo
   //   é bloqueado, e o acesso só deve ser feito mais tarde (e o processo desbloqueado)
-
-  //mem_escreve(self->mem, IRQ_END_A, dado);
+  
   processo_set_a(self->processo_em_execucao, dado);
 }
 
@@ -813,7 +812,7 @@ static void so_chamada_escr(so_t *self)
   }
 
   processo_set_a(self->processo_em_execucao, 0);
-  //mem_escreve(self->mem, IRQ_END_A, 0);
+  
 }
 
 // implementacao da chamada se sistema SO_CRIA_PROC
@@ -876,7 +875,7 @@ static void so_chamada_mata_proc(so_t *self)
   // ainda sem suporte a processos, retorna erro -1
   if(self->processo_em_execucao == NULL){
     console_printf("SO: nenhum processo em execucao");
-    mem_escreve(self->mem, IRQ_END_A, -1);
+    //mem_escreve(self->mem, IRQ_END_A, -1);
     return;
   }
 
@@ -890,7 +889,7 @@ static void so_chamada_mata_proc(so_t *self)
     metricas_processo_incrementa_transicao(self->processo_em_execucao->metricas, MORTO);
     metricas_processo_para_tempo_estado(self->processo_em_execucao->metricas, self, MORTO);
     self->processo_em_execucao->metricas->tempo_termino = tempo_atual(self);
-    mem_escreve(self->mem, IRQ_END_A, 0);
+    //mem_escreve(self->mem, IRQ_END_A, 0);
     return;
   }
   console_printf("SO: Matando processo PID %d...", pid);
@@ -906,12 +905,12 @@ static void so_chamada_mata_proc(so_t *self)
     metricas_processo_incrementa_transicao(processo_buscado->metricas, MORTO);
     metricas_processo_para_tempo_estado(processo_buscado->metricas, self, MORTO);
     processo_buscado->metricas->tempo_termino = tempo_atual(self);
-    mem_escreve(self->mem, IRQ_END_A, 0);
+    //mem_escreve(self->mem, IRQ_END_A, 0);
     return;
   }
       
   console_printf("SO: Processo com PID %d não encontrado", pid);
-  mem_escreve(self->mem, IRQ_END_A, -1);
+  //mem_escreve(self->mem, IRQ_END_A, -1);
 } 
 
 // implementacao da chamada se sistema SO_ESPERA_PROC
@@ -927,7 +926,7 @@ static void so_chamada_espera_proc(so_t *self)
   {
     console_printf("SO: processo não pode esperar por si mesmo");
     self->erro_interno = true;
-    mem_escreve(self->mem, IRQ_END_A, -1);
+    //mem_escreve(self->mem, IRQ_END_A, -1);
     return;
   }
 
@@ -936,7 +935,7 @@ static void so_chamada_espera_proc(so_t *self)
   if (processo_esperado == NULL)
   {
     console_printf("SO espera: processo com PID %d não encontrado", pid);
-    mem_escreve(self->mem, IRQ_END_A, -1);
+    //mem_escreve(self->mem, IRQ_END_A, -1);
     self->erro_interno = true;
     return;
   }
@@ -944,7 +943,7 @@ static void so_chamada_espera_proc(so_t *self)
   if (processo_get_estado(processo_esperado) == MORTO)
   {
     console_printf("SO: processo esperado com PID %d ja esta morto", pid);
-    mem_escreve(self->mem, IRQ_END_A, 0);
+    //mem_escreve(self->mem, IRQ_END_A, 0);
     return;
   }
   processo_set_prioridade(self->processo_em_execucao, calcula_prioridade(self, processo_get_prioridade(self->processo_em_execucao)));
@@ -958,7 +957,7 @@ static void so_chamada_espera_proc(so_t *self)
 
     
 
-  mem_escreve(self->mem, IRQ_END_A, 0);
+  //mem_escreve(self->mem, IRQ_END_A, 0);
 }
 
 // CARGA DE PROGRAMA {{{1
