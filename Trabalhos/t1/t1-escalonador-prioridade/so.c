@@ -31,8 +31,6 @@
 #define BLOQUEIO_ESPERA_PROC 2
 
 
-
-
 typedef struct  {
     int num_processos_criados;
     double tempo_total_execucao;
@@ -60,6 +58,7 @@ typedef struct processo_t {
     int motivo_bloqueio;
     int dado_escrever;
     double prioridade;
+    int erro;
     
    metricas_processo_t *metricas;
 } processo_t;
@@ -106,6 +105,7 @@ static int processo_get_estado(processo_t *processo);
 static int processo_get_dispositivo(processo_t *processo);
 static int processo_get_motivo_bloqueio(processo_t *processo);
 static int processo_get_dado_escrever(processo_t *processo);
+static int processo_get_erro(processo_t *processo);
 static double processo_get_prioridade(processo_t *processo);
 static void processo_set_pid(processo_t *processo, int pid);
 static void processo_set_pc(processo_t *processo, int pc);
@@ -114,8 +114,12 @@ static void processo_set_x(processo_t *processo, int x);
 static void processo_set_estado(processo_t *processo, int estado);
 static void processo_set_dispositivo(processo_t *processo, int dispositivo);
 static void processo_set_motivo_bloqueio(processo_t *processo, int motivo_bloqueio);
-static void processo_set_dado_escrever(processo_t *processo, int motivo_bloqueio);
+static void processo_set_dado_escrever(processo_t *processo, int dado);
+static void processo_set_erro(processo_t *processo, int erro);
 static void processo_set_prioridade(processo_t *processo, double prioridade);
+static void processo_muda_estado(so_t *self, processo_t *processo, int estado);
+static void processo_bloqueia(so_t *self, processo_t *processo, int motivo);
+
 
 static tabela_processos_t *tabela_cria();
 static int tabela_adicionar_processo(tabela_processos_t *tabela, processo_t *processo);
@@ -321,15 +325,17 @@ static void so_salva_estado_da_cpu(so_t *self)
   if(self->processo_em_execucao != NULL){
     
 
-    int regA, regX, regPC;
+    int regA, regX, regPC, erro;
 
     mem_le(self->mem, IRQ_END_A, &regA);
     mem_le(self->mem, IRQ_END_X, &regX);
     mem_le(self->mem, IRQ_END_PC, &regPC);
+    mem_le(self->mem, IRQ_END_erro, &erro);
 
     processo_set_a(self->processo_em_execucao, regA);
     processo_set_x(self->processo_em_execucao, regX);
     processo_set_pc(self->processo_em_execucao, regPC);
+    processo_set_erro(self->processo_em_execucao, erro);
 
     console_printf("SO: Salvando valores da CPU A: %d X: %d PC: %d no processo %d", regA, regX, regPC, processo_get_pid(self->processo_em_execucao));
   }
@@ -371,9 +377,7 @@ static void so_trata_pendencias(so_t *self)
         if (es_le(self->es, teclado_ok, &estado_teclado) == ERR_OK)
         {
           if(estado_teclado != 0){
-            processo_set_estado(processo, PRONTO);
-            metricas_processo_incrementa_transicao(processo->metricas, PRONTO);
-            metricas_processo_para_tempo_estado(processo->metricas, self, PRONTO);
+            processo_muda_estado(self, processo, PRONTO);
             console_printf("SO: Processo %d desbloqueado para ler teclado.", processo_get_pid(processo));
           } 
         }
@@ -386,9 +390,8 @@ static void so_trata_pendencias(so_t *self)
             int dado_escrever = processo_get_dado_escrever(processo);
             if (es_escreve(self->es, tela, dado_escrever) == ERR_OK)
             {
-              processo_set_estado(processo, PRONTO);
-              metricas_processo_incrementa_transicao(processo->metricas, PRONTO);
-              metricas_processo_para_tempo_estado(processo->metricas, self, PRONTO);
+              processo_muda_estado(self, processo, PRONTO);
+              
               console_printf("SO: Processo %d desbloqueado para escrever na tela.", processo_get_pid(processo));
             }  
           }
@@ -414,9 +417,7 @@ static void so_trata_pendencias(so_t *self)
 
             if (processo_tabela_pid == processo_A && processo_tabela_estado == MORTO)
             {
-              processo_set_estado(processo, PRONTO);
-              metricas_processo_incrementa_transicao(processo->metricas, PRONTO);
-              metricas_processo_para_tempo_estado(processo->metricas, self, PRONTO);
+              processo_muda_estado(self, processo, PRONTO);
               console_printf("SO: Processo %d desbloqueado depois de esperar processo morrer.", processo_get_pid(processo));
               break;
             }
@@ -457,9 +458,7 @@ static void so_escalona(so_t *self)
   if (self->processo_em_execucao != NULL && self->processo_em_execucao->estado == EXECUTANDO)
   {
     processo_set_prioridade(self->processo_em_execucao, calcula_prioridade(self, processo_get_prioridade(self->processo_em_execucao)));
-    processo_set_estado(self->processo_em_execucao, PRONTO);
-    metricas_processo_incrementa_transicao(self->processo_em_execucao->metricas, PRONTO);
-    metricas_processo_para_tempo_estado(self->processo_em_execucao->metricas, self, PRONTO);
+    processo_muda_estado(self, self->processo_em_execucao, PRONTO);
 
     fila_inserir(self->fila_prontos, self->processo_em_execucao);
     metricas_so_incrementa_preempcao(self->metricas);
@@ -479,10 +478,8 @@ static void so_escalona(so_t *self)
         metricas_so_adiciona_tempo_ocioso(self->metricas, tempo_atual(self));
       }
 
-
-      processo_set_estado(primeiro_da_fila, EXECUTANDO);
-      metricas_processo_incrementa_transicao(primeiro_da_fila->metricas, EXECUTANDO);
-      metricas_processo_para_tempo_estado(primeiro_da_fila->metricas, self, EXECUTANDO);
+      processo_muda_estado(self, primeiro_da_fila, EXECUTANDO);
+      
       self->processo_em_execucao = primeiro_da_fila;
       self->quantum_restante = QUANTUM;
       return;
@@ -514,10 +511,12 @@ static int so_despacha(so_t *self)
   int regA = processo_get_a(self->processo_em_execucao);
   int regX =  processo_get_x(self->processo_em_execucao);
   int regPC =  processo_get_pc(self->processo_em_execucao);
+  int erro = processo_get_erro(self->processo_em_execucao); 
 
   mem_escreve(self->mem, IRQ_END_A, regA);
   mem_escreve(self->mem, IRQ_END_X, regX);
   mem_escreve(self->mem, IRQ_END_PC, regPC);
+  mem_escreve(self->mem, IRQ_END_erro, erro);
   console_printf("SO: Despachando processo %d A: %d X: %d PC: %d na CPU ", processo_get_pid(self->processo_em_execucao), regA, regX, regPC );
 
   return 0;
@@ -588,7 +587,7 @@ static void so_trata_irq_reset(so_t *self)
   fila_inserir(self->fila_prontos, processo_init);
 
   // altera o PC para o endereço de carga
-  //mem_escreve(self->mem, IRQ_END_PC, ender);
+  mem_escreve(self->mem, IRQ_END_PC, ender);
   // passa o processador para modo usuário
   //mem_escreve(self->mem, IRQ_END_modo, usuario);
 }
@@ -600,20 +599,18 @@ static void so_trata_irq_err_cpu(so_t *self)
   // O erro está codificado em IRQ_END_erro
   // Em geral, causa a morte do processo que causou o erro
   // Ainda não temos processos, causa a parada da CPU
-  int err_int;
+  
   // t1: com suporte a processos, deveria pegar o valor do registrador erro
   //   no descritor do processo corrente, e reagir de acordo com esse erro
   //   (em geral, matando o processo)
-  mem_le(self->mem, IRQ_END_erro, &err_int);
-  err_t err = err_int;
+  err_t err = processo_get_erro(self->processo_em_execucao);
   console_printf("SO: IRQ nao tratada -- erro na CPU: %s", err_nome(err));
 
   if (self->processo_em_execucao != NULL)
   {
     console_printf("SO: matando processo %d -- erro na CPU", processo_get_pid(self->processo_em_execucao));
-    processo_set_estado(self->processo_em_execucao, MORTO);
-    metricas_processo_incrementa_transicao(self->processo_em_execucao->metricas, MORTO);
-    metricas_processo_para_tempo_estado(self->processo_em_execucao->metricas, self, PRONTO);
+    processo_muda_estado(self, self->processo_em_execucao, MORTO);
+    
     for (int i = 0; i < self->tabela->num_processos; i++)
     {   
       processo_t *processo_tabela = self->tabela->tabela_processos[i];
@@ -621,9 +618,8 @@ static void so_trata_irq_err_cpu(so_t *self)
       int regA = processo_get_a(processo_tabela);
       if (estado == BLOQUEADO && regA == processo_get_pid(self->processo_em_execucao))
       { 
-        processo_set_estado(processo_tabela, PRONTO);
-        metricas_processo_incrementa_transicao(processo_tabela->metricas, PRONTO);
-        metricas_processo_para_tempo_estado(processo_tabela->metricas, self, PRONTO);
+        processo_muda_estado(self, processo_tabela, PRONTO);
+        
         fila_inserir(self->fila_prontos, processo_tabela);
         console_printf("SO: processo %d desbloqueado após a morte do processo %d", processo_get_pid(processo_tabela), processo_get_pid(self->processo_em_execucao));
       }
@@ -706,9 +702,8 @@ static void so_trata_irq_chamada_sistema(so_t *self)
       console_printf("SO: chamada de sistema desconhecida (%d)", id_chamada);
       // t1: deveria matar o processo
       console_printf("SO: Matando processo PID %d...", processo_get_pid(self->processo_em_execucao));
-      processo_set_estado(self->processo_em_execucao, MORTO);
-      metricas_processo_incrementa_transicao(self->processo_em_execucao->metricas, MORTO);
-      metricas_processo_para_tempo_estado(self->processo_em_execucao->metricas, self, MORTO);
+      processo_muda_estado(self, self->processo_em_execucao, MORTO);
+      
       self->erro_interno = true;
   }
 }
@@ -740,11 +735,8 @@ static void so_chamada_le(so_t *self)
 
   if (estado == 0)
   {
-    processo_set_prioridade(self->processo_em_execucao, calcula_prioridade(self, processo_get_prioridade(self->processo_em_execucao)));
-    processo_set_estado(self->processo_em_execucao, BLOQUEADO);
-    metricas_processo_incrementa_transicao(self->processo_em_execucao->metricas, BLOQUEADO);
-    metricas_processo_para_tempo_estado(self->processo_em_execucao->metricas, self, BLOQUEADO);
-    processo_set_motivo_bloqueio(self->processo_em_execucao, BLOQUEIO_LEITURA);
+    processo_bloqueia(self, self->processo_em_execucao,BLOQUEIO_LEITURA );
+    
     console_printf("SO: Processo %d foi ler teclado, mas nao podia... BLOQUEADO!", processo_get_pid(self->processo_em_execucao));
     return;
   }
@@ -790,12 +782,9 @@ static void so_chamada_escr(so_t *self)
   int dado = processo_get_x(self->processo_em_execucao);
   if (estado == 0)
   {  
-    processo_set_prioridade(self->processo_em_execucao, calcula_prioridade(self, processo_get_prioridade(self->processo_em_execucao)));
     processo_set_dado_escrever(self->processo_em_execucao, dado);
-    processo_set_estado(self->processo_em_execucao, BLOQUEADO);
-    metricas_processo_incrementa_transicao(self->processo_em_execucao->metricas, BLOQUEADO);
-    metricas_processo_para_tempo_estado(self->processo_em_execucao->metricas, self, BLOQUEADO);
-    processo_set_motivo_bloqueio(self->processo_em_execucao, BLOQUEIO_ESCRITA);
+    processo_bloqueia(self, self->processo_em_execucao, BLOQUEIO_ESCRITA );
+   
     return;
   }
   
@@ -824,16 +813,8 @@ static void so_chamada_cria_proc(so_t *self)
   // T1: deveria criar um novo processo
 
   // em X está o endereço onde está o nome do arquivo
-  int ender_proc;
+  int ender_proc = processo_get_x(self->processo_em_execucao);
 
-  // t1: deveria ler o X do descritor do processo criador
-  if (mem_le(self->mem, IRQ_END_X, &ender_proc) != ERR_OK)
-  {
-    console_printf("SO: erro ao acessar o endereço do nome do arquivo");
-    self->erro_interno = true;
-    processo_set_a(self->processo_em_execucao, -1);
-    return;
-  }
 
   char nome[100];
   if (!copia_str_da_mem(100, nome, self->mem, ender_proc))
@@ -875,7 +856,7 @@ static void so_chamada_mata_proc(so_t *self)
   // ainda sem suporte a processos, retorna erro -1
   if(self->processo_em_execucao == NULL){
     console_printf("SO: nenhum processo em execucao");
-    //mem_escreve(self->mem, IRQ_END_A, -1);
+    mem_escreve(self->mem, IRQ_END_A, -1);
     return;
   }
 
@@ -885,11 +866,11 @@ static void so_chamada_mata_proc(so_t *self)
   if (pid == 0)
   {
     console_printf("SO: Matando processo PID %d...", processo_get_pid(self->processo_em_execucao));
-    processo_set_estado(self->processo_em_execucao, MORTO);
-    metricas_processo_incrementa_transicao(self->processo_em_execucao->metricas, MORTO);
-    metricas_processo_para_tempo_estado(self->processo_em_execucao->metricas, self, MORTO);
+
+    processo_muda_estado(self, self->processo_em_execucao, MORTO);
+   
     self->processo_em_execucao->metricas->tempo_termino = tempo_atual(self);
-    //mem_escreve(self->mem, IRQ_END_A, 0);
+    mem_escreve(self->mem, IRQ_END_A, 0);
     return;
   }
   console_printf("SO: Matando processo PID %d...", pid);
@@ -901,16 +882,15 @@ static void so_chamada_mata_proc(so_t *self)
 
 
   if(processo_buscado){
-    processo_set_estado(processo_buscado, MORTO);
-    metricas_processo_incrementa_transicao(processo_buscado->metricas, MORTO);
-    metricas_processo_para_tempo_estado(processo_buscado->metricas, self, MORTO);
+    processo_muda_estado(self, processo_buscado, MORTO);
+   
     processo_buscado->metricas->tempo_termino = tempo_atual(self);
-    //mem_escreve(self->mem, IRQ_END_A, 0);
+    mem_escreve(self->mem, IRQ_END_A, 0);
     return;
   }
       
   console_printf("SO: Processo com PID %d não encontrado", pid);
-  //mem_escreve(self->mem, IRQ_END_A, -1);
+  mem_escreve(self->mem, IRQ_END_A, -1);
 } 
 
 // implementacao da chamada se sistema SO_ESPERA_PROC
@@ -926,7 +906,7 @@ static void so_chamada_espera_proc(so_t *self)
   {
     console_printf("SO: processo não pode esperar por si mesmo");
     self->erro_interno = true;
-    //mem_escreve(self->mem, IRQ_END_A, -1);
+    mem_escreve(self->mem, IRQ_END_A, -1);
     return;
   }
 
@@ -935,7 +915,7 @@ static void so_chamada_espera_proc(so_t *self)
   if (processo_esperado == NULL)
   {
     console_printf("SO espera: processo com PID %d não encontrado", pid);
-    //mem_escreve(self->mem, IRQ_END_A, -1);
+    mem_escreve(self->mem, IRQ_END_A, -1);
     self->erro_interno = true;
     return;
   }
@@ -943,21 +923,16 @@ static void so_chamada_espera_proc(so_t *self)
   if (processo_get_estado(processo_esperado) == MORTO)
   {
     console_printf("SO: processo esperado com PID %d ja esta morto", pid);
-    //mem_escreve(self->mem, IRQ_END_A, 0);
+    mem_escreve(self->mem, IRQ_END_A, 0);
     return;
   }
-  processo_set_prioridade(self->processo_em_execucao, calcula_prioridade(self, processo_get_prioridade(self->processo_em_execucao)));
-  processo_set_estado(self->processo_em_execucao, BLOQUEADO);
-  metricas_processo_incrementa_transicao(self->processo_em_execucao->metricas, BLOQUEADO);
-  metricas_processo_para_tempo_estado(self->processo_em_execucao->metricas, self, BLOQUEADO);
-
+  processo_bloqueia(self, self->processo_em_execucao, BLOQUEIO_ESPERA_PROC );
   
-  processo_set_motivo_bloqueio(self->processo_em_execucao, BLOQUEIO_ESPERA_PROC);
   processo_set_a(self->processo_em_execucao, pid); 
 
     
 
-  //mem_escreve(self->mem, IRQ_END_A, 0);
+  mem_escreve(self->mem, IRQ_END_A, 0);
 }
 
 // CARGA DE PROGRAMA {{{1
@@ -1028,11 +1003,12 @@ static processo_t *processo_cria(so_t *self, int pid, int pc) {
     processo_set_pc(novo_processo, pc);
     processo_set_a(novo_processo, 0);
     processo_set_x(novo_processo, 0);
-    processo_set_estado(novo_processo, PRONTO);
     processo_set_dispositivo(novo_processo, ((pid % 4) * 4));
     processo_set_prioridade(novo_processo, 0.5);
     
     novo_processo->metricas = metricas_processo_cria(tempo_atual(self));
+
+    processo_set_estado(novo_processo, PRONTO);
     metricas_processo_incrementa_transicao(novo_processo->metricas, PRONTO);
     metricas_processo_atualiza_tempo_estado(novo_processo->metricas, PRONTO, tempo_atual(self) *-1);
     metricas_so_incrementa_processos(self->metricas);
@@ -1074,6 +1050,11 @@ static int processo_get_motivo_bloqueio(processo_t *processo) {
 static int processo_get_dado_escrever(processo_t *processo) {
     return processo->dado_escrever;
 }
+
+static int processo_get_erro(processo_t *processo) {
+    return processo->erro;
+}
+
 static double processo_get_prioridade(processo_t *processo) {
     return processo->prioridade;
 }
@@ -1120,11 +1101,28 @@ static void processo_set_motivo_bloqueio(processo_t *processo, int motivo_bloque
     processo->motivo_bloqueio = motivo_bloqueio;
 }
 
-static void processo_set_dado_escrever(processo_t *processo, int dado_escrever) {
-    processo->dado_escrever = dado_escrever;
+static void processo_set_dado_escrever(processo_t *processo, int dado) {
+    processo->dado_escrever = dado;
 }
+
+static void processo_set_erro(processo_t *processo, int erro){
+  processo->erro = erro;
+}
+
 static void processo_set_prioridade(processo_t *processo, double prioridade) {
     processo->prioridade = prioridade;
+}
+
+static void processo_muda_estado(so_t *self, processo_t *processo, int estado){
+  processo_set_estado(processo, estado);
+  metricas_processo_incrementa_transicao(processo->metricas, estado);
+  metricas_processo_para_tempo_estado(processo->metricas, self, estado);
+}
+
+static void processo_bloqueia(so_t *self, processo_t *processo, int motivo){
+  processo_set_prioridade(processo, calcula_prioridade(self, processo_get_prioridade(processo)));
+  processo_muda_estado(self, processo, BLOQUEADO);
+  processo_set_motivo_bloqueio(processo, motivo);
 }
 
 
