@@ -1,0 +1,75 @@
+=== Métricas de Todos os Processos ===
+Metricas do Processo 1:
+  - Tempo de vida: 24049.00 interrupcoes
+  - Numero de preempções: 2
+  - Tempo medio de resposta: 50.40 interrupcoes
+  - Tempo total nos estados:
+      * PRONTO: 252.00 interrupcoes
+      * EXECUTANDO: 491.00 interrupcoes
+      * BLOQUEADO: 23306.00 interrupcoes
+      * MORTO: 0.00 interrupcoes
+  - Transicoes de estado:
+      * PRONTO: 5 vezes
+      * EXECUTANDO: 5 vezes
+      * BLOQUEADO: 2 vezes
+      * MORTO: 1 vezes
+
+Metricas do Processo 2:
+  - Tempo de vida: 17097.00 interrupcoes
+  - Numero de preempções: 39
+  - Tempo medio de resposta: 152.23 interrupcoes
+  - Tempo total nos estados:
+      * PRONTO: 7307.00 interrupcoes
+      * EXECUTANDO: 9198.00 interrupcoes
+      * BLOQUEADO: 592.00 interrupcoes
+      * MORTO: 6569.00 interrupcoes
+  - Transicoes de estado:
+      * PRONTO: 48 vezes
+      * EXECUTANDO: 48 vezes
+      * BLOQUEADO: 8 vezes
+      * MORTO: 1 vezes
+
+Metricas do Processo 3:
+  - Tempo de vida: 11989.00 interrupcoes
+  - Numero de preempções: 12
+  - Tempo medio de resposta: 284.73 interrupcoes
+  - Tempo total nos estados:
+      * PRONTO: 7403.00 interrupcoes
+      * EXECUTANDO: 3756.00 interrupcoes
+      * BLOQUEADO: 830.00 interrupcoes
+      * MORTO: 11669.00 interrupcoes
+  - Transicoes de estado:
+      * PRONTO: 26 vezes
+      * EXECUTANDO: 26 vezes
+      * BLOQUEADO: 13 vezes
+      * MORTO: 1 vezes
+
+Metricas do Processo 4:
+  - Tempo de vida: 23331.00 interrupcoes
+  - Numero de preempções: 5
+  - Tempo medio de resposta: 96.45 interrupcoes
+  - Tempo total nos estados:
+      * PRONTO: 10610.00 interrupcoes
+      * EXECUTANDO: 5742.00 interrupcoes
+      * BLOQUEADO: 6979.00 interrupcoes
+      * MORTO: 319.00 interrupcoes
+  - Transicoes de estado:
+      * PRONTO: 110 vezes
+      * EXECUTANDO: 110 vezes
+      * BLOQUEADO: 104 vezes
+      * MORTO: 1 vezes
+
+=== Metricas do Sistema Operacional ===
+  - Numero de processos criados: 4
+  - Tempo total de execucao: 24049.00 interrupcoes
+  - Tempo total ocioso: 4610.00 interrupcoes
+  - Numero de preempcoes: 58
+  - Interrupcoes recebidas por tipo:
+      * Tipo IRQ_RESET: 1 vezes
+      * Tipo IRQ_ERR_CPU: 0 vezes
+      * Tipo IRQ_SISTEMA: 462 vezes
+      * Tipo IRQ_RELOGIO: 479 vezes
+      * Tipo IRQ_TECLADO: 0 vezes
+      * Tipo IRQ_TELA: 0 vezes
+      * Tipo N_IRQ: 0 vezes
+      * Tipo UNKNOWN_IRQ: 0 vezes
