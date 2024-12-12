@@ -937,8 +937,6 @@ static processo_t *processo_cria(so_t *self, int pid, int pc) {
     metricas_processo_incrementa_transicao(novo_processo->metricas, PRONTO);
     metricas_processo_atualiza_tempo_estado(novo_processo->metricas, PRONTO, tempo_atual(self) *-1);
     metricas_so_incrementa_processos(self->metricas);
-   
-    
 
     return novo_processo;
 }
